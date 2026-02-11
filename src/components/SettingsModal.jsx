@@ -1,80 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Button,
-  Typography,
-  Link,
-  Box,
+import React, { useState } from 'react';
+import { 
+  Dialog, DialogTitle, DialogContent, DialogActions, 
+  Button, TextField, Typography, Box, Divider
 } from '@mui/material';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { APP_ID } from '../lib/constants';
+import { Settings, AdminPanelSettings } from '@mui/icons-material';
 
-const SettingsModal = ({ open, onClose, userId, currentApiKey, onSave }) => {
-  const [keyInput, setKeyInput] = useState('');
+const SettingsModal = ({ open, onClose, currentApiKey, onSave, onEnterAdmin }) => {
+  const [key, setKey] = useState(currentApiKey || '');
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (currentApiKey) setKeyInput(currentApiKey);
-  }, [currentApiKey]);
-
-  const handleSave = async () => {
-    if (!userId) return;
-    try {
-      // Firestoreに保存
-      await setDoc(
-        doc(db, 'artifacts', APP_ID, 'users', userId, 'settings', 'config'),
-        {
-          apiKey: keyInput,
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-
-      // State更新
-      onSave(keyInput);
-      onClose();
-    } catch (e) {
-      alert('保存に失敗しました');
+  // 保存処理
+  const handleSave = () => {
+    if (!key.trim()) {
+      setError('APIキーを入力してください');
+      return;
     }
+    // Gemini APIキーの簡易フォーマットチェック (AIza...で始まる)
+    if (!key.startsWith('AIza')) {
+      setError('有効なGoogle APIキーを入力してください');
+      return;
+    }
+    onSave(key);
+    onClose();
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle fontWeight="bold">設定</DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+        <Settings /> アプリ設定
+      </DialogTitle>
+      
       <DialogContent>
-        <Typography variant="body2" gutterBottom>
-          Google Gemini APIキーを設定してください。
-        </Typography>
-        <Box my={2}>
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            Gemini APIキー設定
+          </Typography>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            AIによる問題生成を行うために、Google GeminiのAPIキーが必要です。
+            キーはブラウザ内にのみ保存されます。
+          </Typography>
+          
           <TextField
             autoFocus
-            fullWidth
+            margin="dense"
+            label="API Key (AIza...)"
             type="password"
-            label="Gemini API Key"
+            fullWidth
             variant="outlined"
-            value={keyInput}
-            onChange={(e) => setKeyInput(e.target.value)}
-            helperText={
-              <Link
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noopener"
-              >
-                APIキーをここで取得
-              </Link>
-            }
+            value={key}
+            onChange={(e) => {
+              setKey(e.target.value);
+              setError('');
+            }}
+            error={!!error}
+            helperText={error}
           />
+          
+          <Box mt={4}>
+            <Divider sx={{ mb: 2 }} />
+            <Typography variant="subtitle2" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
+              <AdminPanelSettings fontSize="small" color="action" /> 管理者メニュー
+            </Typography>
+            <Button 
+              variant="outlined" 
+              color="secondary" 
+              size="small"
+              fullWidth
+              onClick={() => {
+                // 親コンポーネントの管理者モード切り替え関数を実行
+                if (onEnterAdmin) {
+                  onEnterAdmin();
+                  onClose();
+                }
+              }}
+            >
+              管理者ダッシュボードを開く
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              ※保護者・指導者用の分析画面へ移動します
+            </Typography>
+          </Box>
         </Box>
       </DialogContent>
+      
       <DialogActions>
         <Button onClick={onClose}>キャンセル</Button>
-        <Button onClick={handleSave} variant="contained" disabled={!keyInput}>
-          保存
-        </Button>
+        <Button onClick={handleSave} variant="contained">保存</Button>
       </DialogActions>
     </Dialog>
   );
